@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"golang.org/x/exp/inotify"
 	"log"
 	"net"
 	"os"
@@ -36,10 +37,13 @@ type Args struct {
 	// Ports to grant access to.
 	Ports []int
 
-	// CIDR to grant and save access to.
-	CIDR *net.IPNet
-
+	// Verbose controls verbose output.
 	Verbose bool
+
+	// Daemonise. If true, then the program sits persistently and watches the
+	// given CIDR file for modifications. When the file is modified, we apply
+	// the changes immediately.
+	Daemonise bool
 }
 
 // IPTablesRule holds an iptables rule.
@@ -75,37 +79,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Load CIDRs to be allowed.
-	fileCIDRs, err := loadCIDRsFromFile(args.CIDRFile)
-	if err != nil {
-		log.Fatalf("Unable to load CIDRs: %s", err)
-	}
-
-	// Determine CIDRs currently allowed.
-	currentRules, err := getCurrentRules(args.Verbose)
-	if err != nil {
-		log.Fatalf("Unable to determine current rules: %s", err)
-	}
-
-	// Remove any that are allowed that should not be.
-	err = removeUnlistedRules(fileCIDRs, args.Ports, currentRules, args.Verbose)
-	if err != nil {
-		log.Fatalf("Unable to remove rules that are not in the rule file: %s", err)
-	}
-
-	// Add any not yet allowed that should be.
-	err = addMissingRules(fileCIDRs, args.Ports, currentRules, args.Verbose)
-	if err != nil {
-		log.Fatalf("Unable to add missing rules: %s", err)
-	}
-
-	// If we were given a new CIDR to add, do that.
-	if args.CIDR != nil {
-		err = addAllowedCIDR(args.CIDRFile, fileCIDRs, args.Ports, args.CIDR,
-			args.Verbose)
+	if !args.Daemonise {
+		err = applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
 		if err != nil {
-			log.Fatalf("Unable to add CIDR: %s: %s", args.CIDR, err)
+			log.Fatal(err)
 		}
+		return
+	}
+
+	err = watchCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -113,8 +97,8 @@ func main() {
 func getArgs() (Args, error) {
 	cidrFile := flag.String("cidr-file", "", "File with CIDRs to allow.")
 	portsString := flag.String("ports", "80,443", "Port(s) to grant access to. Comma separated.")
-	cidr := flag.String("cidr", "", "CIDR to grant access to. Optional. If provided, we update the CIDR file as well as the firewall rules.")
 	verbose := flag.Bool("verbose", false, "Toggle verbose output.")
+	daemonise := flag.Bool("daemonise", false, "Daemonise and watch the CIDR file for changes. Apply changes when the file changes.")
 
 	flag.Parse()
 
@@ -142,24 +126,44 @@ func getArgs() (Args, error) {
 		ports = append(ports, portInt)
 	}
 
-	var ipNet *net.IPNet
-	if len(*cidr) > 0 {
-		*cidr = strings.TrimSpace(*cidr)
-		if len(*cidr) > 0 {
-			_, net, err := net.ParseCIDR(*cidr)
-			if err != nil {
-				return Args{}, fmt.Errorf("Invalid CIDR: %s: %s", *cidr, err)
-			}
-			ipNet = net
-		}
+	return Args{
+		CIDRFile:  *cidrFile,
+		Ports:     ports,
+		Verbose:   *verbose,
+		Daemonise: *daemonise,
+	}, nil
+}
+
+// applyUpdatesFromCIDRFile ensures the iptables rules match what is in the
+// CIDR file.
+func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
+	ports []int) error {
+	// Load CIDRs to be allowed.
+	fileCIDRs, err := loadCIDRsFromFile(cidrFile)
+	if err != nil {
+		return fmt.Errorf("Unable to load CIDRs: %s", err)
 	}
 
-	return Args{
-		CIDRFile: *cidrFile,
-		Ports:    ports,
-		CIDR:     ipNet,
-		Verbose:  *verbose,
-	}, nil
+	// Determine CIDRs currently allowed.
+	currentRules, err := getCurrentRules(verbose)
+	if err != nil {
+		return fmt.Errorf("Unable to determine current rules: %s", err)
+	}
+
+	// Remove any that are allowed that should not be.
+	err = removeUnlistedRules(fileCIDRs, ports, currentRules, verbose)
+	if err != nil {
+		return fmt.Errorf("Unable to remove rules that are not in the rule file: %s",
+			err)
+	}
+
+	// Add any not yet allowed that should be.
+	err = addMissingRules(fileCIDRs, ports, currentRules, verbose)
+	if err != nil {
+		return fmt.Errorf("Unable to add missing rules: %s", err)
+	}
+
+	return nil
 }
 
 // loadCIDRsFromFile opens and parse the CIDR file.
@@ -422,62 +426,75 @@ func addRule(cidr *net.IPNet, port int) error {
 	return nil
 }
 
-// addAllowedCIDR takes a CIDR and appends it to the CIDR file (if it is
-// not already there). Then it makes sure the CIDR is actively allowed on
-// each port.
-//
-// This is to provide a way to add a CIDR easily with one command.
-func addAllowedCIDR(cidrFile string, cidrs []*net.IPNet, ports []int,
-	cidr *net.IPNet, verbose bool) error {
-	// Is it one we already allow?
-	if isCIDRInList(cidrs, cidr) {
-		if verbose {
-			log.Printf("CIDR already allowed: %s", cidr)
-		}
-		return nil
-	}
-
-	// We need to add it.
-
-	// Add it to the CIDR file.
-	err := addToCIDRFile(cidrFile, cidr)
+// watchCIDRFile waits for modification events to the CIDR file. When seen,
+// we apply the CIDR file to the iptables rules. This loops forever (or
+// until we see an error).
+func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
+	watcher, err := watchFile(cidrFile)
 	if err != nil {
-		return fmt.Errorf("Unable to rewrite CIDR file: %s", err)
+		return fmt.Errorf("Unable to watch file: %s", err)
 	}
 
-	// Make it an active rule.
-	for _, port := range ports {
-		err := addRule(cidr, port)
-		if err != nil {
-			return fmt.Errorf("Unable to add rule: %s", err)
-		}
+	for {
 		if verbose {
-			log.Printf("Added rule: %s %d", cidr, port)
+			log.Printf("Waiting for changes...")
+		}
+
+		select {
+		case ev := <-watcher.Event:
+			if verbose {
+				log.Printf("Event: %s", ev)
+			}
+
+			// IN_IGNORED means the watch was removed. e.g., file was deleted.
+			// This can happen when saving the file in vim. It moves it and then
+			// deletes it.
+			//
+			// I close the watcher entirely and re-create it. Why? Because I have
+			// found that re-using it, even using RemoveWatch() and then Watch()
+			// again, does not let us see events afterwards.
+			// I wonder if this is a bug in the inotify package as it seems
+			// surprising.
+			if ev.Mask == inotify.IN_IGNORED {
+				err = watcher.Close()
+				if err != nil {
+					return fmt.Errorf("Watcher close error: %s")
+				}
+
+				watcher, err = watchFile(cidrFile)
+				if err != nil {
+					return fmt.Errorf("Unable to re-watch file: %s", err)
+				}
+			}
+
+			if ev.Mask == inotify.IN_CLOSE_WRITE || ev.Mask == inotify.IN_IGNORED {
+				err = applyUpdatesFromCIDRFile(cidrFile, verbose, ports)
+				if err != nil {
+					watcher.Close()
+					return fmt.Errorf("Unable to apply updates: %s")
+				}
+				log.Printf("Applied updates.")
+			}
+		case err := <-watcher.Error:
+			watcher.Close()
+			return fmt.Errorf("Error from watching file: %s: %s", cidrFile, err)
 		}
 	}
 
 	return nil
 }
 
-// addToCIDRFile appends the given CIDR to the CIDR file.
-//
-// You should only call this if you already determined the CIDR is not present.
-func addToCIDRFile(cidrFile string, cidr *net.IPNet) error {
-	fh, err := os.OpenFile(cidrFile, os.O_WRONLY|os.O_APPEND, 0666)
+// watchFile creates a new Watcher watching the given file.
+func watchFile(file string) (*inotify.Watcher, error) {
+	watcher, err := inotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("Unable to open file: %s: %s", cidrFile, err)
+		return nil, fmt.Errorf("Unable to create file watcher: %s", err)
 	}
 
-	defer fh.Close()
-
-	out := "\n" + cidr.String() + "\n"
-	sz, err := fh.WriteString(out)
+	err = watcher.Watch(file)
 	if err != nil {
-		return fmt.Errorf("Unable to write to file: %s: %s", cidrFile, err)
+		watcher.Close()
+		return nil, fmt.Errorf("Unable to re-watch file: %s: %s", file, err)
 	}
-	if sz != len(out) {
-		return fmt.Errorf("Short write to %s", cidrFile)
-	}
-
-	return nil
+	return watcher, nil
 }
