@@ -363,7 +363,7 @@ func removeRule(lineNumber int) error {
 	cmd := exec.Command("iptables", "-D", "INPUT", strconv.Itoa(lineNumber))
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Unable to run iptables -D: %s: %s", cmd, err)
+		return fmt.Errorf("Unable to run iptables -D: %s", err)
 	}
 	return nil
 }
@@ -421,7 +421,7 @@ func addRule(cidr *net.IPNet, port int) error {
 	)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Unable to run iptables -I: %s: %s", cmd, err)
+		return fmt.Errorf("Unable to run iptables -I: %s", err)
 	}
 	return nil
 }
@@ -458,7 +458,7 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			if ev.Mask == inotify.IN_IGNORED {
 				err = watcher.Close()
 				if err != nil {
-					return fmt.Errorf("Watcher close error: %s")
+					return fmt.Errorf("Watcher close error: %s", err)
 				}
 
 				watcher, err = watchFile(cidrFile)
@@ -471,7 +471,7 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 				err = applyUpdatesFromCIDRFile(cidrFile, verbose, ports)
 				if err != nil {
 					watcher.Close()
-					return fmt.Errorf("Unable to apply updates: %s")
+					return fmt.Errorf("Unable to apply updates: %s", err)
 				}
 				log.Printf("Applied updates.")
 			}
@@ -480,8 +480,6 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			return fmt.Errorf("Error from watching file: %s: %s", cidrFile, err)
 		}
 	}
-
-	return nil
 }
 
 // watchFile creates a new Watcher watching the given file.
