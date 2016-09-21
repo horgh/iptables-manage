@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"golang.org/x/exp/inotify"
 	"log"
 	"net"
 	"os"
@@ -27,6 +26,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/inotify"
+	"summercat.com/iptables-manage/cidrlist"
 )
 
 // Args holds command line arguments.
@@ -139,7 +141,7 @@ func getArgs() (Args, error) {
 func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	ports []int) error {
 	// Load CIDRs to be allowed.
-	fileCIDRs, err := loadCIDRsFromFile(cidrFile)
+	fileCIDRs, err := cidrlist.LoadCIDRsFromFile(cidrFile)
 	if err != nil {
 		return fmt.Errorf("Unable to load CIDRs: %s", err)
 	}
@@ -164,46 +166,6 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	}
 
 	return nil
-}
-
-// loadCIDRsFromFile opens and parse the CIDR file.
-// We ignore # comments and blank lines.
-// Other lines must be full CIDRs. We parse them.
-func loadCIDRsFromFile(file string) ([]*net.IPNet, error) {
-	fh, err := os.Open(file)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to open file: %s: %s", file, err)
-	}
-
-	defer fh.Close()
-
-	scanner := bufio.NewScanner(fh)
-
-	var cidrs []*net.IPNet
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		line = strings.TrimSpace(line)
-		if len(line) == 0 {
-			continue
-		}
-		if line[0] == '#' {
-			continue
-		}
-
-		_, ipNet, err := net.ParseCIDR(line)
-		if err != nil {
-			return nil, fmt.Errorf("Invalid CIDR: %s: %s", line, err)
-		}
-
-		cidrs = append(cidrs, ipNet)
-	}
-
-	if scanner.Err() != nil {
-		return nil, fmt.Errorf("File scan error: %s", scanner.Err())
-	}
-
-	return cidrs, nil
 }
 
 // getCurrentRules runs iptables -L and collects rules into memory.
@@ -470,13 +432,13 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			if ev.Mask == inotify.IN_CLOSE_WRITE || ev.Mask == inotify.IN_IGNORED {
 				err = applyUpdatesFromCIDRFile(cidrFile, verbose, ports)
 				if err != nil {
-					watcher.Close()
+					_ = watcher.Close()
 					return fmt.Errorf("Unable to apply updates: %s", err)
 				}
 				log.Printf("Applied updates.")
 			}
 		case err := <-watcher.Error:
-			watcher.Close()
+			_ = watcher.Close()
 			return fmt.Errorf("Error from watching file: %s: %s", cidrFile, err)
 		}
 	}
@@ -491,7 +453,7 @@ func watchFile(file string) (*inotify.Watcher, error) {
 
 	err = watcher.Watch(file)
 	if err != nil {
-		watcher.Close()
+		_ = watcher.Close()
 		return nil, fmt.Errorf("Unable to re-watch file: %s: %s", file, err)
 	}
 	return watcher, nil
