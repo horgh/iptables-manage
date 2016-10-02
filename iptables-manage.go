@@ -81,11 +81,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if !args.Daemonise {
-		err = applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
-		if err != nil {
-			log.Fatal(err)
-		}
 		return
 	}
 
