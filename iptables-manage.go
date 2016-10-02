@@ -290,9 +290,7 @@ func removeUnlistedRules(cidrs []*net.IPNet, ports []int,
 		if err != nil {
 			return fmt.Errorf("Unable to remove rule: %v: %s", rule, err)
 		}
-		if verbose {
-			log.Printf("Removed unwanted rule: %v", rule)
-		}
+		log.Printf("Removed unwanted rule: %v", rule)
 		rulesRemoved++
 	}
 
@@ -350,9 +348,7 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 			if err != nil {
 				return fmt.Errorf("Unable to add rule: %s", err)
 			}
-			if verbose {
-				log.Printf("Added rule: %s %d", cidr, port)
-			}
+			log.Printf("Added rule: %s %d", cidr, port)
 		}
 	}
 
