@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/horgh/iptables-manage/cidrlist"
 	"golang.org/x/exp/inotify"
-	"summercat.com/iptables-manage/cidrlist"
 )
 
 // Args holds command line arguments.
