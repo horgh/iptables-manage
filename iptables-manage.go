@@ -1,16 +1,3 @@
-/*
- * Purpose of this program:
- * I want to keep my httpd firewalled from all hosts except those whitelisted.
- *
- * Managing a list of IPs by hand is a bit tedious with base iptables I've
- * found. I want my own small wrapper around it to keep allowed IPs up to date.
- * I also want it to be easy to add new IPs to the list.
- *
- * I expect there are existing tools to do this kind of thing, but given it is
- * really only one command (iptables -A) I prefer to write something simple
- * myself so I can understand what is happening best.
- */
-
 package main
 
 import (
