@@ -139,6 +139,11 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 		return fmt.Errorf("close failed: %s: %s", file, err)
 	}
 
+	if err := copyFileIDs(file, tempName); err != nil {
+		_ = os.Remove(tempName)
+		return fmt.Errorf("copying file IDs: %s", err)
+	}
+
 	// Move it into place.
 
 	if err := os.Rename(tempName, file); err != nil {
@@ -188,6 +193,11 @@ func lockFile(file string) (*os.File, error) {
 		return nil, fmt.Errorf("unable to lock file: %s: %s", lockFilename, err)
 	}
 
+	if err := copyFileIDs(file, lockFilename); err != nil {
+		_ = fh.Close()
+		return nil, fmt.Errorf("copying file IDs: %s", err)
+	}
+
 	return fh, nil
 }
 
@@ -199,6 +209,23 @@ func writeFull(fh *os.File, s string) error {
 
 	if sz != len(s) {
 		return fmt.Errorf("short write")
+	}
+
+	return nil
+}
+
+// Set the same user ID and group ID on file 2 as is on file 1.
+//
+// If we rewrite files then the IDs may change. This can prevent access.
+func copyFileIDs(src, dest string) error {
+	var stat syscall.Stat_t
+
+	if err := syscall.Stat(src, &stat); err != nil {
+		return fmt.Errorf("stat: %s", err)
+	}
+
+	if err := os.Chown(dest, int(stat.Uid), int(stat.Gid)); err != nil {
+		return fmt.Errorf("chown: %s", err)
 	}
 
 	return nil
