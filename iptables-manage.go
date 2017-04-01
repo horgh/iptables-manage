@@ -93,11 +93,11 @@ func getArgs() (Args, error) {
 	flag.Parse()
 
 	if len(*cidrFile) == 0 {
-		return Args{}, fmt.Errorf("Please provide a CIDR file.")
+		return Args{}, fmt.Errorf("please provide a CIDR file")
 	}
 
 	if len(*portsString) == 0 {
-		return Args{}, fmt.Errorf("Please provide ports.")
+		return Args{}, fmt.Errorf("please provide ports")
 	}
 
 	portsRaw := strings.Split(*portsString, ",")
@@ -110,7 +110,7 @@ func getArgs() (Args, error) {
 
 		portInt, err := strconv.Atoi(port)
 		if err != nil {
-			return Args{}, fmt.Errorf("Invalid port: %s: %s", port, err)
+			return Args{}, fmt.Errorf("invalid port: %s: %s", port, err)
 		}
 
 		ports = append(ports, portInt)
@@ -131,26 +131,26 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	// Load CIDRs to be allowed.
 	fileCIDRs, err := cidrlist.LoadCIDRsFromFile(cidrFile)
 	if err != nil {
-		return fmt.Errorf("Unable to load CIDRs: %s", err)
+		return fmt.Errorf("unable to load CIDRs: %s", err)
 	}
 
 	// Determine CIDRs currently allowed.
 	currentRules, err := getCurrentRules(verbose)
 	if err != nil {
-		return fmt.Errorf("Unable to determine current rules: %s", err)
+		return fmt.Errorf("unable to determine current rules: %s", err)
 	}
 
 	// Remove any that are allowed that should not be.
 	err = removeUnlistedRules(fileCIDRs, ports, currentRules, verbose)
 	if err != nil {
-		return fmt.Errorf("Unable to remove rules that are not in the rule file: %s",
+		return fmt.Errorf("unable to remove rules that are not in the rule file: %s",
 			err)
 	}
 
 	// Add any not yet allowed that should be.
 	err = addMissingRules(fileCIDRs, ports, currentRules, verbose)
 	if err != nil {
-		return fmt.Errorf("Unable to add missing rules: %s", err)
+		return fmt.Errorf("unable to add missing rules: %s", err)
 	}
 
 	return nil
@@ -166,7 +166,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 	cmd := exec.Command("iptables", "-nL", "INPUT", "--line-numbers")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to run iptables -nL: %s", err)
+		return nil, fmt.Errorf("unable to run iptables -nL: %s", err)
 	}
 
 	buf := bytes.NewBuffer(output)
@@ -192,7 +192,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 
 		numInt, err := strconv.Atoi(num)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse number as integer: %s: %s", num,
+			return nil, fmt.Errorf("unable to parse number as integer: %s: %s", num,
 				err)
 		}
 
@@ -215,19 +215,19 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 
 		_, ipNet, err := net.ParseCIDR(source)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse source as CIDR: %s: %s", source,
+			return nil, fmt.Errorf("unable to parse source as CIDR: %s: %s", source,
 				err)
 		}
 
 		re := regexp.MustCompile("^dpt:(\\d+)$")
 		matches := re.FindStringSubmatch(dpt)
 		if matches == nil {
-			return nil, fmt.Errorf("Unexpected dpt value: %s", dpt)
+			return nil, fmt.Errorf("unexpected dpt value: %s", dpt)
 		}
 
 		port, err := strconv.Atoi(matches[1])
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse port as integer: %s: %s",
+			return nil, fmt.Errorf("unable to parse port as integer: %s: %s",
 				matches[1], err)
 		}
 
@@ -239,7 +239,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 	}
 
 	if scanner.Err() != nil {
-		return nil, fmt.Errorf("Scan error: %s", err)
+		return nil, fmt.Errorf("scan error: %s", err)
 	}
 
 	return rules, nil
@@ -275,8 +275,9 @@ func removeUnlistedRules(cidrs []*net.IPNet, ports []int,
 		lineNumber := rule.Line - rulesRemoved
 		err := removeRule(lineNumber)
 		if err != nil {
-			return fmt.Errorf("Unable to remove rule: %v: %s", rule, err)
+			return fmt.Errorf("unable to remove rule: %v: %s", rule, err)
 		}
+
 		log.Printf("Removed unwanted rule: %v", rule)
 		rulesRemoved++
 	}
@@ -311,7 +312,7 @@ func removeRule(lineNumber int) error {
 	cmd := exec.Command("iptables", "-D", "INPUT", strconv.Itoa(lineNumber))
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Unable to run iptables -D: %s", err)
+		return fmt.Errorf("unable to run iptables -D: %s", err)
 	}
 	return nil
 }
@@ -333,8 +334,9 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 
 			err := addRule(cidr, port)
 			if err != nil {
-				return fmt.Errorf("Unable to add rule: %s", err)
+				return fmt.Errorf("unable to add rule: %s", err)
 			}
+
 			log.Printf("Added rule: %s %d", cidr, port)
 		}
 	}
@@ -367,7 +369,7 @@ func addRule(cidr *net.IPNet, port int) error {
 	)
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("Unable to run iptables -I: %s", err)
+		return fmt.Errorf("unable to run iptables -I: %s", err)
 	}
 	return nil
 }
@@ -378,7 +380,7 @@ func addRule(cidr *net.IPNet, port int) error {
 func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 	watcher, err := watchFile(cidrFile)
 	if err != nil {
-		return fmt.Errorf("Unable to watch file: %s", err)
+		return fmt.Errorf("unable to watch file: %s", err)
 	}
 
 	for {
@@ -404,12 +406,12 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			if ev.Mask == inotify.IN_IGNORED {
 				err = watcher.Close()
 				if err != nil {
-					return fmt.Errorf("Watcher close error: %s", err)
+					return fmt.Errorf("watcher close error: %s", err)
 				}
 
 				watcher, err = watchFile(cidrFile)
 				if err != nil {
-					return fmt.Errorf("Unable to re-watch file: %s", err)
+					return fmt.Errorf("unable to re-watch file: %s", err)
 				}
 			}
 
@@ -417,13 +419,14 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 				err = applyUpdatesFromCIDRFile(cidrFile, verbose, ports)
 				if err != nil {
 					_ = watcher.Close()
-					return fmt.Errorf("Unable to apply updates: %s", err)
+					return fmt.Errorf("unable to apply updates: %s", err)
 				}
+
 				log.Printf("Applied updates.")
 			}
 		case err := <-watcher.Error:
 			_ = watcher.Close()
-			return fmt.Errorf("Error from watching file: %s: %s", cidrFile, err)
+			return fmt.Errorf("error from watching file: %s: %s", cidrFile, err)
 		}
 	}
 }
@@ -432,13 +435,13 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 func watchFile(file string) (*inotify.Watcher, error) {
 	watcher, err := inotify.NewWatcher()
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create file watcher: %s", err)
+		return nil, fmt.Errorf("unable to create file watcher: %s", err)
 	}
 
 	err = watcher.Watch(file)
 	if err != nil {
 		_ = watcher.Close()
-		return nil, fmt.Errorf("Unable to re-watch file: %s: %s", file, err)
+		return nil, fmt.Errorf("unable to re-watch file: %s: %s", file, err)
 	}
 	return watcher, nil
 }
