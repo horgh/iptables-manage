@@ -23,7 +23,12 @@ import (
 // ip/32
 //
 // We do not write anything to the file if the IP is already present.
-func RecordIP(file, ip, comment string) error {
+func RecordIP(file, ipStr, comment string) error {
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return fmt.Errorf("invalid IP: %s", ipStr)
+	}
+
 	alreadyRecorded, err := ipIsInFile(file, ip)
 	if err != nil {
 		return fmt.Errorf("unable to check if IP is in file: %s", err)
@@ -66,50 +71,27 @@ func RecordIP(file, ip, comment string) error {
 	return nil
 }
 
-// ipIsInFile checks if the IP is in the file.
-//
-// To be in the file, we say there must be a line like so:
-// ip/32
-func ipIsInFile(file, ip string) (bool, error) {
-	_, err := os.Lstat(file)
+// ipIsInFile checks if the IP is listed in the file.
+func ipIsInFile(file string, ip net.IP) (bool, error) {
+	nets, err := LoadCIDRsFromFile(file)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("unable to stat file: %s", err)
+		return false, fmt.Errorf("unable to load CIDRs: %s", err)
 	}
 
-	fh, err := os.Open(file)
-	if err != nil {
-		return false, fmt.Errorf("unable to open: %s", err)
-	}
-
-	defer func() {
-		err := fh.Close()
-		if err != nil {
-			log.Printf("close failure: %s: %s", file, err)
-		}
-	}()
-
-	scanner := bufio.NewScanner(fh)
-
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == ip+"/32" {
+	for _, n := range nets {
+		if n.Contains(ip) {
 			return true, nil
 		}
-	}
-
-	if scanner.Err() != nil {
-		return false, fmt.Errorf("scanner error: %s", scanner.Err())
 	}
 
 	return false, nil
 }
 
 // LoadCIDRsFromFile opens and parse the CIDR file.
+//
 // We ignore # comments and blank lines.
-// Other lines must be full CIDRs. We parse them.
+//
+// All other lines must be full CIDRs. We parse them.
 func LoadCIDRsFromFile(file string) ([]*net.IPNet, error) {
 	fh, err := os.Open(file)
 	if err != nil {
