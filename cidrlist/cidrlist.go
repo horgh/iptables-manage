@@ -10,6 +10,7 @@ package cidrlist
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -25,7 +26,7 @@ import (
 func RecordIP(file, ip, comment string) error {
 	alreadyRecorded, err := ipIsInFile(file, ip)
 	if err != nil {
-		return fmt.Errorf("Unable to check if IP is in file: %s", err)
+		return fmt.Errorf("unable to check if IP is in file: %s", err)
 	}
 
 	if alreadyRecorded {
@@ -34,7 +35,7 @@ func RecordIP(file, ip, comment string) error {
 
 	fh, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		return fmt.Errorf("Unable to open: %s: %s", file, err)
+		return fmt.Errorf("unable to open: %s: %s", file, err)
 	}
 
 	flockt := syscall.Flock_t{
@@ -42,20 +43,24 @@ func RecordIP(file, ip, comment string) error {
 	}
 	err = syscall.FcntlFlock(fh.Fd(), syscall.F_SETLKW, &flockt)
 	if err != nil {
-		return fmt.Errorf("Unable to lock file: %s: %s", file, err)
+		return fmt.Errorf("unable to lock file: %s: %s", file, err)
 	}
-
-	defer fh.Close()
 
 	output := fmt.Sprintf("# %s\n%s/32\n", comment, ip)
 
 	sz, err := fh.WriteString(output)
 	if err != nil {
-		return fmt.Errorf("Unable to write: %s", err)
+		_ = fh.Close()
+		return fmt.Errorf("unable to write: %s", err)
 	}
 
 	if sz != len(output) {
-		return fmt.Errorf("Short write")
+		_ = fh.Close()
+		return fmt.Errorf("short write")
+	}
+
+	if err := fh.Close(); err != nil {
+		return fmt.Errorf("close failed: %s: %s", file, err)
 	}
 
 	return nil
@@ -65,21 +70,26 @@ func RecordIP(file, ip, comment string) error {
 //
 // To be in the file, we say there must be a line like so:
 // ip/32
-func ipIsInFile(file string, ip string) (bool, error) {
+func ipIsInFile(file, ip string) (bool, error) {
 	_, err := os.Lstat(file)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("Unable to stat file: %s", err)
+		return false, fmt.Errorf("unable to stat file: %s", err)
 	}
 
 	fh, err := os.Open(file)
 	if err != nil {
-		return false, fmt.Errorf("Unable to open: %s", err)
+		return false, fmt.Errorf("unable to open: %s", err)
 	}
 
-	defer fh.Close()
+	defer func() {
+		err := fh.Close()
+		if err != nil {
+			log.Printf("close failure: %s: %s", file, err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(fh)
 
@@ -91,7 +101,7 @@ func ipIsInFile(file string, ip string) (bool, error) {
 	}
 
 	if scanner.Err() != nil {
-		return false, fmt.Errorf("Scanner error: %s", scanner.Err())
+		return false, fmt.Errorf("scanner error: %s", scanner.Err())
 	}
 
 	return false, nil
@@ -103,10 +113,15 @@ func ipIsInFile(file string, ip string) (bool, error) {
 func LoadCIDRsFromFile(file string) ([]*net.IPNet, error) {
 	fh, err := os.Open(file)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open file: %s: %s", file, err)
+		return nil, fmt.Errorf("unable to open file: %s: %s", file, err)
 	}
 
-	defer fh.Close()
+	defer func() {
+		err := fh.Close()
+		if err != nil {
+			log.Printf("close failure: %s: %s", file, err)
+		}
+	}()
 
 	scanner := bufio.NewScanner(fh)
 
@@ -124,14 +139,14 @@ func LoadCIDRsFromFile(file string) ([]*net.IPNet, error) {
 
 		_, ipNet, err := net.ParseCIDR(line)
 		if err != nil {
-			return nil, fmt.Errorf("Invalid CIDR: %s: %s", line, err)
+			return nil, fmt.Errorf("invalid CIDR: %s: %s", line, err)
 		}
 
 		cidrs = append(cidrs, ipNet)
 	}
 
 	if scanner.Err() != nil {
-		return nil, fmt.Errorf("File scan error: %s", scanner.Err())
+		return nil, fmt.Errorf("file scan error: %s", scanner.Err())
 	}
 
 	return cidrs, nil
