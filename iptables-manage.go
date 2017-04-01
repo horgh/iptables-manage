@@ -129,7 +129,7 @@ func getArgs() (Args, error) {
 func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	ports []int) error {
 	// Load CIDRs to be allowed.
-	fileCIDRs, err := cidrlist.LoadCIDRsFromFile(cidrFile)
+	fileRecords, err := cidrlist.LoadCIDRsFromFile(cidrFile)
 	if err != nil {
 		return fmt.Errorf("unable to load CIDRs: %s", err)
 	}
@@ -138,6 +138,11 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	currentRules, err := getCurrentRules(verbose)
 	if err != nil {
 		return fmt.Errorf("unable to determine current rules: %s", err)
+	}
+
+	fileCIDRs := []*net.IPNet{}
+	for _, r := range fileRecords {
+		fileCIDRs = append(fileCIDRs, r.Net)
 	}
 
 	// Remove any that are allowed that should not be.
