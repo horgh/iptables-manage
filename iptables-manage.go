@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/horgh/iptables-manage/cidrlist"
-	"golang.org/x/exp/inotify"
 )
 
 // Args holds command line arguments.
@@ -390,18 +390,13 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 		}
 
 		select {
-		case ev := <-watcher.Event:
+		case ev := <-watcher.Events:
 			if verbose {
 				log.Printf("Event: %s", ev)
 			}
 
-			// IN_IGNORED means the watch was removed. e.g., file was deleted.
-			//
-			// I close the watcher entirely and re-create it. I have found that
-			// re-using it, even using RemoveWatch() and then Watch() again, does not
-			// let us see events afterwards. I wonder if this is a bug in the inotify
-			// package as it seems surprising?
-			if ev.Mask == inotify.IN_IGNORED {
+			// File removed. Watch again. We expect the file was replaced.
+			if ev.Op == fsnotify.Remove {
 				if err := watcher.Close(); err != nil {
 					return fmt.Errorf("watcher close error: %s", err)
 				}
@@ -410,31 +405,35 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 				if err != nil {
 					return fmt.Errorf("unable to re-watch file: %s", err)
 				}
+
+				// Fall through. The file was replaced, so run updates.
 			}
 
-			if ev.Mask == inotify.IN_CLOSE_WRITE || ev.Mask == inotify.IN_IGNORED {
+			if ev.Op == fsnotify.Write || ev.Op == fsnotify.Remove {
 				if err := applyUpdatesFromCIDRFile(cidrFile, verbose, ports); err != nil {
 					_ = watcher.Close()
 					return fmt.Errorf("unable to apply updates: %s", err)
 				}
 
 				log.Printf("Applied updates.")
+				continue
 			}
-		case err := <-watcher.Error:
+
+		case err := <-watcher.Errors:
 			_ = watcher.Close()
-			return fmt.Errorf("error from watching file: %s: %s", cidrFile, err)
+			return fmt.Errorf("error watching file: %s: %s", cidrFile, err)
 		}
 	}
 }
 
 // watchFile creates a new Watcher watching the given file.
-func watchFile(file string) (*inotify.Watcher, error) {
-	watcher, err := inotify.NewWatcher()
+func watchFile(file string) (*fsnotify.Watcher, error) {
+	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create file watcher: %s", err)
 	}
 
-	if err := watcher.Watch(file); err != nil {
+	if err := watcher.Add(file); err != nil {
 		_ = watcher.Close()
 		return nil, fmt.Errorf("unable to re-watch file: %s: %s", file, err)
 	}
