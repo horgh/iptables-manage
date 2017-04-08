@@ -68,8 +68,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
-	if err != nil {
+	if err := applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports); err != nil {
 		log.Fatal(err)
 	}
 
@@ -77,8 +76,7 @@ func main() {
 		return
 	}
 
-	err = watchCIDRFile(args.CIDRFile, args.Verbose, args.Ports)
-	if err != nil {
+	if err := watchCIDRFile(args.CIDRFile, args.Verbose, args.Ports); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -146,15 +144,13 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	}
 
 	// Remove any that are allowed that should not be.
-	err = removeUnlistedRules(fileCIDRs, ports, currentRules, verbose)
-	if err != nil {
+	if err := removeUnlistedRules(fileCIDRs, ports, currentRules, verbose); err != nil {
 		return fmt.Errorf("unable to remove rules that are not in the rule file: %s",
 			err)
 	}
 
 	// Add any not yet allowed that should be.
-	err = addMissingRules(fileCIDRs, ports, currentRules, verbose)
-	if err != nil {
+	if err := addMissingRules(fileCIDRs, ports, currentRules, verbose); err != nil {
 		return fmt.Errorf("unable to add missing rules: %s", err)
 	}
 
@@ -400,17 +396,13 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			}
 
 			// IN_IGNORED means the watch was removed. e.g., file was deleted.
-			// This can happen when saving the file in vim. It moves it and then
-			// deletes it.
 			//
-			// I close the watcher entirely and re-create it. Why? Because I have
-			// found that re-using it, even using RemoveWatch() and then Watch()
-			// again, does not let us see events afterwards.
-			// I wonder if this is a bug in the inotify package as it seems
-			// surprising.
+			// I close the watcher entirely and re-create it. I have found that
+			// re-using it, even using RemoveWatch() and then Watch() again, does not
+			// let us see events afterwards. I wonder if this is a bug in the inotify
+			// package as it seems surprising?
 			if ev.Mask == inotify.IN_IGNORED {
-				err = watcher.Close()
-				if err != nil {
+				if err := watcher.Close(); err != nil {
 					return fmt.Errorf("watcher close error: %s", err)
 				}
 
@@ -421,8 +413,7 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			}
 
 			if ev.Mask == inotify.IN_CLOSE_WRITE || ev.Mask == inotify.IN_IGNORED {
-				err = applyUpdatesFromCIDRFile(cidrFile, verbose, ports)
-				if err != nil {
+				if err := applyUpdatesFromCIDRFile(cidrFile, verbose, ports); err != nil {
 					_ = watcher.Close()
 					return fmt.Errorf("unable to apply updates: %s", err)
 				}
@@ -443,10 +434,10 @@ func watchFile(file string) (*inotify.Watcher, error) {
 		return nil, fmt.Errorf("unable to create file watcher: %s", err)
 	}
 
-	err = watcher.Watch(file)
-	if err != nil {
+	if err := watcher.Watch(file); err != nil {
 		_ = watcher.Close()
 		return nil, fmt.Errorf("unable to re-watch file: %s: %s", file, err)
 	}
+
 	return watcher, nil
 }
