@@ -94,7 +94,7 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 	for _, rec := range records {
 		if rec.Net.Contains(ip) {
 			// Raise error if IP is listed in two CIDRs. We need to resolve this. We
-			// probably want the broader CIDR, but let manually fix it for now.
+			// probably want the broader CIDR, but lets manually fix it for now.
 			if ipNet != nil {
 				_ = fh.Close()
 				_ = os.Remove(tempName)
@@ -115,8 +115,8 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 		}
 	}
 
-	// Write our IP. Retain the CIDR we found if it was in the file already. It may
-	// be broader than /32.
+	// Write our IP. Retain the CIDR we found if it was in the file already. It
+	// may be broader than /32.
 
 	output := ""
 
