@@ -368,9 +368,8 @@ func addRule(cidr *net.IPNet, port int) error {
 		"--dport", strconv.Itoa(port),
 		"-j", "ACCEPT",
 	)
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("unable to run iptables -I: %s", err)
+	if buf, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("unable to run iptables -I: %s: %s", err, buf)
 	}
 	return nil
 }
