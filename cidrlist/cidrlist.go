@@ -58,8 +58,7 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 	}
 
 	defer func() {
-		err = lfh.Close()
-		if err != nil {
+		if err := lfh.Close(); err != nil {
 			log.Printf("Error closing lock on file: %s: %s", file, err)
 		}
 	}()
