@@ -68,7 +68,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose, args.Ports); err != nil {
+	if err := applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose,
+		args.Ports); err != nil {
 		log.Fatal(err)
 	}
 
@@ -84,9 +85,11 @@ func main() {
 // getArgs retrieves and validates command line arguments.
 func getArgs() (Args, error) {
 	cidrFile := flag.String("cidr-file", "", "File with CIDRs to allow.")
-	portsString := flag.String("ports", "80,443", "Port(s) to grant access to. Comma separated.")
+	portsString := flag.String("ports", "80,443",
+		"Port(s) to grant access to. Comma separated.")
 	verbose := flag.Bool("verbose", false, "Toggle verbose output.")
-	daemonise := flag.Bool("daemonise", false, "Daemonise and watch the CIDR file for changes. Apply changes when the file changes.")
+	daemonise := flag.Bool("daemonise", false,
+		"Daemonise and watch the CIDR file for changes. Apply changes when the file changes.")
 
 	flag.Parse()
 
@@ -144,13 +147,15 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	}
 
 	// Remove any that are allowed that should not be.
-	if err := removeUnlistedRules(fileCIDRs, ports, currentRules, verbose); err != nil {
+	if err := removeUnlistedRules(fileCIDRs, ports, currentRules,
+		verbose); err != nil {
 		return fmt.Errorf("unable to remove rules that are not in the rule file: %s",
 			err)
 	}
 
 	// Add any not yet allowed that should be.
-	if err := addMissingRules(fileCIDRs, ports, currentRules, verbose); err != nil {
+	if err := addMissingRules(fileCIDRs, ports, currentRules,
+		verbose); err != nil {
 		return fmt.Errorf("unable to add missing rules: %s", err)
 	}
 
@@ -239,7 +244,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 		})
 	}
 
-	if scanner.Err() != nil {
+	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("scan error: %s", err)
 	}
 
@@ -274,8 +279,7 @@ func removeUnlistedRules(cidrs []*net.IPNet, ports []int,
 		// It's not wanted! Remove it.
 
 		lineNumber := rule.Line - rulesRemoved
-		err := removeRule(lineNumber)
-		if err != nil {
+		if err := removeRule(lineNumber); err != nil {
 			return fmt.Errorf("unable to remove rule: %v: %s", rule, err)
 		}
 
@@ -311,8 +315,7 @@ func isCIDRInList(cidrs []*net.IPNet, cidr *net.IPNet) bool {
 // removeRule calls iptables -D to remove a rule on the given line number.
 func removeRule(lineNumber int) error {
 	cmd := exec.Command("iptables", "-D", "INPUT", strconv.Itoa(lineNumber))
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("unable to run iptables -D: %s", err)
 	}
 	return nil
@@ -333,8 +336,7 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 				continue
 			}
 
-			err := addRule(verbose, cidr, port)
-			if err != nil {
+			if err := addRule(verbose, cidr, port); err != nil {
 				return fmt.Errorf("unable to add rule: %s", err)
 			}
 
@@ -413,7 +415,8 @@ func watchCIDRFile(cidrFile string, verbose bool, ports []int) error {
 			}
 
 			if ev.Op == fsnotify.Write || ev.Op == fsnotify.Remove {
-				if err := applyUpdatesFromCIDRFile(cidrFile, verbose, ports); err != nil {
+				if err := applyUpdatesFromCIDRFile(cidrFile, verbose,
+					ports); err != nil {
 					_ = watcher.Close()
 					return fmt.Errorf("unable to apply updates: %s", err)
 				}
