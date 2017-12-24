@@ -235,6 +235,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 			continue
 		}
 
+		// TODO(horgh): Assumes IPv4
 		if strings.Index(source, "/") == -1 {
 			source = source + "/32"
 		}
@@ -353,6 +354,15 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 				if verbose {
 					log.Printf("Rule already exists: %s %d", cidr, port)
 				}
+				continue
+			}
+
+			// If it's IPv6, skip it. Why? Because apparently iptables keeps separate
+			// lists for IPv6 IPs and errors if you don't use ip6tables or -6. Since
+			// I don't use IPv6 on any hosts I use this program on, I'm not bothering
+			// to add support for IPv6. (However, I can get ::1/128 with localhost
+			// connections, hence ignoring this being explicit).
+			if ip := cidr.IP.To4(); ip == nil {
 				continue
 			}
 
