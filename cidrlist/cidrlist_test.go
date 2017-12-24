@@ -147,16 +147,15 @@ func TestRecordIP(t *testing.T) {
 
 	tempName, err := getTempFilename()
 	if err != nil {
-		t.Errorf("creating temp file: %s", err)
-		return
+		t.Fatalf("creating temp file: %s", err)
 	}
 
 	for _, test := range tests {
 		if err := ioutil.WriteFile(tempName, []byte(test.PriorContents),
 			0644); err != nil {
-			t.Errorf("unable to write to file: %s: %s: %s", tempName,
+			_ = os.Remove(tempName)
+			t.Fatalf("unable to write to file: %s: %s: %s", tempName,
 				test.PriorContents, err)
-			continue
 		}
 
 		err := RecordIP(tempName, test.IP, test.Comment, recTime)
@@ -166,9 +165,10 @@ func TestRecordIP(t *testing.T) {
 			_ = os.Remove(tempName)
 			continue
 		}
-
 		if err != nil {
-			_ = os.Remove(tempName)
+			if err := os.Remove(tempName); err != nil {
+				t.Fatalf("error removing file: %s: %s", tempName, err)
+			}
 			continue
 		}
 
@@ -202,28 +202,24 @@ func TestWriteFull(t *testing.T) {
 	for _, test := range tests {
 		fh, err := ioutil.TempFile("", "test")
 		if err != nil {
-			t.Errorf("TempFile(\"\", \"test\") = error %s", err)
-			return
+			t.Fatalf("TempFile(\"\", \"test\") = error %s", err)
 		}
 
 		if err := writeFull(fh, test.Input); err != nil {
-			t.Errorf("writeFull(fh, %s) = error %s", test.Input, err)
 			_ = fh.Close()
 			_ = os.Remove(fh.Name())
-			continue
+			t.Fatalf("writeFull(fh, %s) = error %s", test.Input, err)
 		}
 
 		if err := fh.Close(); err != nil {
-			t.Errorf("writeFull: close: %s", err)
 			_ = os.Remove(fh.Name())
-			return
+			t.Fatalf("writeFull: close: %s", err)
 		}
 
 		buf, err := ioutil.ReadFile(fh.Name())
 		if err != nil {
-			t.Errorf("writeFull: reading file back: %s", err)
 			_ = os.Remove(fh.Name())
-			return
+			t.Fatalf("writeFull: reading file back: %s", err)
 		}
 
 		if string(buf) != test.Input {
@@ -234,8 +230,7 @@ func TestWriteFull(t *testing.T) {
 		}
 
 		if err := os.Remove(fh.Name()); err != nil {
-			t.Errorf("writeFull: remove: %s", err)
-			return
+			t.Fatalf("writeFull: remove: %s", err)
 		}
 	}
 }
@@ -317,23 +312,20 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 
 	tempName, err := getTempFilename()
 	if err != nil {
-		t.Errorf("creating temp file: %s", err)
-		return
+		t.Fatalf("creating temp file: %s", err)
 	}
 
 	// Try when file does not exist.
-	_, err = LoadCIDRsFromFile(tempName)
-	if !os.IsNotExist(err) {
-		t.Errorf("unexpected error when file does not exist: %s", err)
-		return
+	if _, err = LoadCIDRsFromFile(tempName); !os.IsNotExist(err) {
+		t.Fatalf("unexpected error when file does not exist: %s", err)
 	}
 
 	for _, test := range tests {
 		if err := ioutil.WriteFile(tempName, []byte(test.Contents),
 			0644); err != nil {
-			t.Errorf("unable to write to file: %s: %s: %s", tempName, test.Contents,
+			_ = os.Remove(tempName)
+			t.Fatalf("unable to write to file: %s: %s: %s", tempName, test.Contents,
 				err)
-			continue
 		}
 
 		recs, err := LoadCIDRsFromFile(tempName)
@@ -343,14 +335,15 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 			_ = os.Remove(tempName)
 			continue
 		}
-
-		if err := os.Remove(tempName); err != nil {
-			t.Errorf("removing file: %s: %s", tempName, err)
+		if err != nil {
+			if err := os.Remove(tempName); err != nil {
+				t.Fatalf("removing file: %s: %s", tempName, err)
+			}
 			continue
 		}
 
-		if err != nil {
-			continue
+		if err := os.Remove(tempName); err != nil {
+			t.Fatalf("removing file: %s: %s", tempName, err)
 		}
 
 		if err := recordsEqual(recs, test.Records); err != nil {
