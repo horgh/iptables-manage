@@ -366,6 +366,15 @@ func addMissingRules(
 	}
 
 	for _, cidr := range cidrs {
+		// If it's IPv6, skip it. Why? Because apparently iptables keeps separate
+		// lists for IPv6 IPs and errors if you don't use ip6tables or -6. Since I
+		// don't use IPv6 on any hosts I use this program on, I'm not bothering to
+		// add support for IPv6. (However, I can get ::1/128 with localhost
+		// connections, hence ignoring this being explicit).
+		if ip := cidr.IP.To4(); ip == nil {
+			continue
+		}
+
 		for _, port := range ports {
 			// If it's already listed, then do nothing.
 			{
@@ -376,15 +385,6 @@ func addMissingRules(
 					}
 					continue
 				}
-			}
-
-			// If it's IPv6, skip it. Why? Because apparently iptables keeps separate
-			// lists for IPv6 IPs and errors if you don't use ip6tables or -6. Since
-			// I don't use IPv6 on any hosts I use this program on, I'm not bothering
-			// to add support for IPv6. (However, I can get ::1/128 with localhost
-			// connections, hence ignoring this being explicit).
-			if ip := cidr.IP.To4(); ip == nil {
-				continue
 			}
 
 			if err := addRule(verbose, cidr, port); err != nil {
