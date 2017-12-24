@@ -247,8 +247,7 @@ func LoadCIDRsFromFile(file string) ([]Record, error) {
 	}
 
 	defer func() {
-		err := fh.Close()
-		if err != nil {
+		if err := fh.Close(); err != nil {
 			log.Printf("Failure closing file: %s: %s", file, err)
 		}
 	}()
@@ -289,8 +288,8 @@ func LoadCIDRsFromFile(file string) ([]Record, error) {
 		comment = ""
 	}
 
-	if scanner.Err() != nil {
-		return nil, fmt.Errorf("file scan error: %s", scanner.Err())
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("file scan error: %s", err)
 	}
 
 	return records, nil
