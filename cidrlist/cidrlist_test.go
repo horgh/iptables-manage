@@ -109,6 +109,36 @@ func TestRecordIP(t *testing.T) {
 			},
 			WantError: nil,
 		},
+		{
+			IP:            "::1",
+			Comment:       "test 1 2 3",
+			PriorContents: "",
+			Records: []Record{
+				{
+					Net: &net.IPNet{
+						IP:   net.ParseIP("::1"),
+						Mask: net.CIDRMask(128, 128),
+					},
+					Comment: "test 1 2 3",
+				},
+			},
+			WantError: nil,
+		},
+		{
+			IP:            "0::1",
+			Comment:       "test 1 2 3",
+			PriorContents: "",
+			Records: []Record{
+				{
+					Net: &net.IPNet{
+						IP:   net.ParseIP("::1"),
+						Mask: net.CIDRMask(128, 128),
+					},
+					Comment: "test 1 2 3",
+				},
+			},
+			WantError: nil,
+		},
 	}
 
 	tempName, err := getTempFilename()
@@ -142,19 +172,21 @@ func TestRecordIP(t *testing.T) {
 
 		recs, err := LoadCIDRsFromFile(tempName)
 		if !errorsEqual(err, test.WantError) {
-			t.Errorf("LoadCIDRsFromFile() error = %s", err)
+			t.Errorf("LoadCIDRsFromFile() error = %s, wanted %s", err, test.WantError)
 			_ = os.Remove(tempName)
 			continue
 		}
 
-		_ = os.Remove(tempName)
+		if err := os.Remove(tempName); err != nil {
+			t.Fatalf("error removing temporary file: %s: %s", tempName, err)
+		}
 
 		// Add time to last record
 		test.Records[len(test.Records)-1].Comment = fmt.Sprintf("%s @ %s",
 			test.Records[len(test.Records)-1].Comment, recTime.Format(time.RFC1123))
 
 		if err := recordsEqual(recs, test.Records); err != nil {
-			t.Errorf("records = %v, wanted %v. mismatch is: %s", recs, test.Records,
+			t.Errorf("records = %+v, wanted %+v. mismatch is: %s", recs, test.Records,
 				err)
 			continue
 		}

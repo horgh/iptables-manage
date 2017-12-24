@@ -114,8 +114,8 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 		}
 	}
 
-	// Write our IP. Retain the CIDR we found if it was in the file already. It
-	// may be broader than /32.
+	// Write our IP. Retain the CIDR we found if the IP was already present. If
+	// it wasn't, default to the specific IP. (/32 for IPv4, /128 for IPv6).
 
 	output := ""
 
@@ -123,8 +123,13 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 		output = fmt.Sprintf("# %s @ %s\n%s\n", comment, t.Format(time.RFC1123),
 			ipNet)
 	} else {
-		output = fmt.Sprintf("# %s @ %s\n%s/32\n", comment, t.Format(time.RFC1123),
-			ip)
+		if ipv4IP := ip.To4(); ipv4IP != nil {
+			output = fmt.Sprintf("# %s @ %s\n%s/32\n", comment,
+				t.Format(time.RFC1123), ip)
+		} else {
+			output = fmt.Sprintf("# %s @ %s\n%s/128\n", comment,
+				t.Format(time.RFC1123), ip)
+		}
 	}
 
 	if err := writeFull(fh, output); err != nil {
