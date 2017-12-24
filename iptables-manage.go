@@ -68,6 +68,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if args.Verbose {
+		log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	}
+
 	if err := applyUpdatesFromCIDRFile(args.CIDRFile, args.Verbose,
 		args.Ports); err != nil {
 		log.Fatal(err)
@@ -129,10 +133,18 @@ func getArgs() (Args, error) {
 // CIDR file.
 func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 	ports []int) error {
+	if verbose {
+		log.Printf("Loading networks from file...")
+	}
+
 	// Load CIDRs to be allowed.
 	fileRecords, err := cidrlist.LoadCIDRsFromFile(cidrFile)
 	if err != nil {
 		return fmt.Errorf("unable to load CIDRs: %s", err)
+	}
+
+	if verbose {
+		log.Printf("Retrieving networks currently in iptables...")
 	}
 
 	// Determine CIDRs currently allowed.
@@ -146,11 +158,19 @@ func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
 		fileCIDRs = append(fileCIDRs, r.Net)
 	}
 
+	if verbose {
+		log.Printf("Pruning networks from iptables...")
+	}
+
 	// Remove any that are allowed that should not be.
 	if err := removeUnlistedRules(fileCIDRs, ports, currentRules,
 		verbose); err != nil {
 		return fmt.Errorf("unable to remove rules that are not in the rule file: %s",
 			err)
+	}
+
+	if verbose {
+		log.Printf("Adding networks to iptables...")
 	}
 
 	// Add any not yet allowed that should be.
