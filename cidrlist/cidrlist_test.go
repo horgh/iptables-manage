@@ -10,6 +10,10 @@ import (
 )
 
 func TestRecordIP(t *testing.T) {
+	// When we record a record, the comment gets the timestamp added.
+	recTime := time.Now()
+	recTimeString := fmt.Sprintf(" @ %s", recTime.Format(time.RFC1123))
+
 	tests := []struct {
 		IP            string
 		Comment       string
@@ -37,7 +41,7 @@ func TestRecordIP(t *testing.T) {
 						IP:   net.ParseIP("192.168.1.3"),
 						Mask: net.CIDRMask(32, 32),
 					},
-					Comment: "test 1 2 3",
+					Comment: "test 1 2 3" + recTimeString,
 				},
 			},
 			WantError: nil,
@@ -80,7 +84,7 @@ func TestRecordIP(t *testing.T) {
 						IP:   net.ParseIP("192.168.1.4"),
 						Mask: net.CIDRMask(32, 32),
 					},
-					Comment: "test 1 2 3",
+					Comment: "test 1 2 3" + recTimeString,
 				},
 			},
 			WantError: nil,
@@ -104,7 +108,7 @@ func TestRecordIP(t *testing.T) {
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
 					},
-					Comment: "test 1 2 3",
+					Comment: "test 1 2 3" + recTimeString,
 				},
 			},
 			WantError: nil,
@@ -119,7 +123,7 @@ func TestRecordIP(t *testing.T) {
 						IP:   net.ParseIP("::1"),
 						Mask: net.CIDRMask(128, 128),
 					},
-					Comment: "test 1 2 3",
+					Comment: "test 1 2 3" + recTimeString,
 				},
 			},
 			WantError: nil,
@@ -134,7 +138,7 @@ func TestRecordIP(t *testing.T) {
 						IP:   net.ParseIP("::1"),
 						Mask: net.CIDRMask(128, 128),
 					},
-					Comment: "test 1 2 3",
+					Comment: "test 1 2 3" + recTimeString,
 				},
 			},
 			WantError: nil,
@@ -146,8 +150,6 @@ func TestRecordIP(t *testing.T) {
 		t.Errorf("creating temp file: %s", err)
 		return
 	}
-
-	recTime := time.Now()
 
 	for _, test := range tests {
 		if err := ioutil.WriteFile(tempName, []byte(test.PriorContents),
@@ -180,10 +182,6 @@ func TestRecordIP(t *testing.T) {
 		if err := os.Remove(tempName); err != nil {
 			t.Fatalf("error removing temporary file: %s: %s", tempName, err)
 		}
-
-		// Add time to last record
-		test.Records[len(test.Records)-1].Comment = fmt.Sprintf("%s @ %s",
-			test.Records[len(test.Records)-1].Comment, recTime.Format(time.RFC1123))
 
 		if err := recordsEqual(recs, test.Records); err != nil {
 			t.Errorf("records = %+v, wanted %+v. mismatch is: %s", recs, test.Records,
