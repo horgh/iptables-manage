@@ -47,16 +47,13 @@ type IPTablesRule struct {
 	Line int
 }
 
-// main is the program entry.
 func main() {
 	log.SetFlags(0)
 
-	// Ensure we are running as root.
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf("Unable to determine the current user: %s", err)
 	}
-
 	if user.Username != "root" {
 		log.Fatalf("You must run this program as root. You are %s.", user.Username)
 	}
@@ -131,8 +128,11 @@ func getArgs() (Args, error) {
 
 // applyUpdatesFromCIDRFile ensures the iptables rules match what is in the
 // CIDR file.
-func applyUpdatesFromCIDRFile(cidrFile string, verbose bool,
-	ports []int) error {
+func applyUpdatesFromCIDRFile(
+	cidrFile string,
+	verbose bool,
+	ports []int,
+) error {
 	if verbose {
 		log.Printf("Loading networks from file...")
 	}
@@ -279,8 +279,12 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 //
 // If there is an iptables rule that is not one of our listed CIDRs, then
 // remove the rule.
-func removeUnlistedRules(cidrs []*net.IPNet, ports []int,
-	currentRules []IPTablesRule, verbose bool) error {
+func removeUnlistedRules(
+	cidrs []*net.IPNet,
+	ports []int,
+	currentRules []IPTablesRule,
+	verbose bool,
+) error {
 	// Track how many rules we remove. This lets us know the real line number
 	// as we progress through the rules.
 	// Note we assume the rules are in order by line number.
@@ -346,8 +350,12 @@ func removeRule(lineNumber int) error {
 // addMissingRules looks at the CIDRs that should have rules.
 //
 // If there should be a rule for the CIDR and port combination, then we add it.
-func addMissingRules(cidrs []*net.IPNet, ports []int,
-	currentRules []IPTablesRule, verbose bool) error {
+func addMissingRules(
+	cidrs []*net.IPNet,
+	ports []int,
+	currentRules []IPTablesRule,
+	verbose bool,
+) error {
 	for _, cidr := range cidrs {
 		for _, port := range ports {
 			// If it's already listed, then do nothing.
@@ -381,8 +389,11 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 // isAnActiveRule compares the CIDR and port with the slice of IPTables rules.
 //
 // If the CIDR/port tuple matches a rule, then we say it is active.
-func isAnActiveRule(cidr *net.IPNet, port int,
-	currentRules []IPTablesRule) bool {
+func isAnActiveRule(
+	cidr *net.IPNet,
+	port int,
+	currentRules []IPTablesRule,
+) bool {
 	for _, rule := range currentRules {
 		if rule.Source.String() == cidr.String() && rule.DestPort == port {
 			return true
