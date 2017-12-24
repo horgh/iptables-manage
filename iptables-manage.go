@@ -333,7 +333,7 @@ func addMissingRules(cidrs []*net.IPNet, ports []int,
 				continue
 			}
 
-			err := addRule(cidr, port)
+			err := addRule(verbose, cidr, port)
 			if err != nil {
 				return fmt.Errorf("unable to add rule: %s", err)
 			}
@@ -359,7 +359,11 @@ func isAnActiveRule(cidr *net.IPNet, port int,
 }
 
 // addRule runs iptables -I to add the given CIDR and port tuple.
-func addRule(cidr *net.IPNet, port int) error {
+func addRule(verbose bool, cidr *net.IPNet, port int) error {
+	if verbose {
+		log.Printf("Trying to add network: %s", cidr)
+	}
+
 	cmd := exec.Command(
 		"iptables", "-I", "INPUT", "1",
 		"-s", cidr.String(),
