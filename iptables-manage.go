@@ -47,6 +47,10 @@ type IPTablesRule struct {
 	Line int
 }
 
+func (i IPTablesRule) String() string {
+	return fmt.Sprintf("%s:%d", i.Source, i.DestPort)
+}
+
 func main() {
 	log.SetFlags(0)
 
@@ -356,14 +360,22 @@ func addMissingRules(
 	currentRules []IPTablesRule,
 	verbose bool,
 ) error {
+	activeRules := map[string]struct{}{}
+	for _, r := range currentRules {
+		activeRules[r.String()] = struct{}{}
+	}
+
 	for _, cidr := range cidrs {
 		for _, port := range ports {
 			// If it's already listed, then do nothing.
-			if isAnActiveRule(cidr, port, currentRules) {
-				if verbose {
-					log.Printf("Rule already exists: %s %d", cidr, port)
+			{
+				k := fmt.Sprintf("%s:%d", cidr.String(), port)
+				if _, exists := activeRules[k]; exists {
+					if verbose {
+						log.Printf("Rule already exists: %s %d", cidr, port)
+					}
+					continue
 				}
-				continue
 			}
 
 			// If it's IPv6, skip it. Why? Because apparently iptables keeps separate
@@ -384,22 +396,6 @@ func addMissingRules(
 	}
 
 	return nil
-}
-
-// isAnActiveRule compares the CIDR and port with the slice of IPTables rules.
-//
-// If the CIDR/port tuple matches a rule, then we say it is active.
-func isAnActiveRule(
-	cidr *net.IPNet,
-	port int,
-	currentRules []IPTablesRule,
-) bool {
-	for _, rule := range currentRules {
-		if rule.Source.String() == cidr.String() && rule.DestPort == port {
-			return true
-		}
-	}
-	return false
 }
 
 // addRule runs iptables -I to add the given CIDR and port tuple.
