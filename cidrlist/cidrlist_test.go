@@ -14,7 +14,6 @@ func TestRecordIP(t *testing.T) {
 		IP            string
 		Comment       string
 		PriorContents string
-		CreateFile    bool
 		Records       []Record
 		WantError     error
 	}{
@@ -23,7 +22,6 @@ func TestRecordIP(t *testing.T) {
 			IP:            "junk",
 			Comment:       "",
 			PriorContents: "",
-			CreateFile:    false,
 			Records:       []Record{},
 			WantError:     fmt.Errorf("invalid IP: junk"),
 		},
@@ -33,9 +31,8 @@ func TestRecordIP(t *testing.T) {
 			IP:            "192.168.1.3",
 			Comment:       "test 1 2 3",
 			PriorContents: "",
-			CreateFile:    false,
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.3"),
 						Mask: net.CIDRMask(32, 32),
@@ -51,7 +48,6 @@ func TestRecordIP(t *testing.T) {
 			IP:            "192.168.1.3",
 			Comment:       "test 1 2 3",
 			PriorContents: "junk\n",
-			CreateFile:    true,
 			Records:       []Record{},
 			WantError:     fmt.Errorf("unable to load records: invalid CIDR address: junk"),
 		},
@@ -61,7 +57,6 @@ func TestRecordIP(t *testing.T) {
 			IP:            "192.168.1.3",
 			Comment:       "test 1 2 3",
 			PriorContents: "192.168.1.3/32\n192.168.1.0/24\n",
-			CreateFile:    true,
 			Records:       []Record{},
 			WantError:     fmt.Errorf("ip is listed twice: 192.168.1.3: 192.168.1.3/32 and 192.168.1.0/24"),
 		},
@@ -71,16 +66,15 @@ func TestRecordIP(t *testing.T) {
 			IP:            "192.168.1.4",
 			Comment:       "test 1 2 3",
 			PriorContents: "192.168.1.3/32\n",
-			CreateFile:    true,
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.3"),
 						Mask: net.CIDRMask(32, 32),
 					},
 					Comment: "",
 				},
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.4"),
 						Mask: net.CIDRMask(32, 32),
@@ -96,16 +90,15 @@ func TestRecordIP(t *testing.T) {
 			IP:            "192.168.1.4",
 			Comment:       "test 1 2 3",
 			PriorContents: "# nice comment\n192.168.1.0/24\n# another nice comment\n192.168.2.0/24",
-			CreateFile:    true,
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.2.0"),
 						Mask: net.CIDRMask(24, 32),
 					},
 					Comment: "another nice comment",
 				},
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
@@ -229,7 +222,7 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 		{
 			Contents: "# test\n192.168.1.0/24\n",
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
@@ -242,7 +235,7 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 		{
 			Contents: "192.168.1.0/24\n",
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
@@ -254,7 +247,7 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 		{
 			Contents: "\n192.168.1.0/24\n\n",
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
@@ -266,14 +259,14 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 		{
 			Contents: "# test 1 2\n192.168.1.0/24\n# test 3 4\n192.168.0.0/16\n",
 			Records: []Record{
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.1.0"),
 						Mask: net.CIDRMask(24, 32),
 					},
 					Comment: "test 1 2",
 				},
-				Record{
+				{
 					Net: &net.IPNet{
 						IP:   net.ParseIP("192.168.0.0"),
 						Mask: net.CIDRMask(16, 32),
