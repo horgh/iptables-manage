@@ -49,7 +49,8 @@ func TestRecordIP(t *testing.T) {
 			Comment:       "test 1 2 3",
 			PriorContents: "junk\n",
 			Records:       []Record{},
-			WantError:     fmt.Errorf("unable to load records: invalid CIDR address: junk"),
+			WantError: fmt.Errorf(
+				"unable to load records: invalid CIDR address: junk"),
 		},
 
 		// IP is listed twice.
@@ -119,7 +120,8 @@ func TestRecordIP(t *testing.T) {
 	recTime := time.Now()
 
 	for _, test := range tests {
-		if err := ioutil.WriteFile(tempName, []byte(test.PriorContents), 0644); err != nil {
+		if err := ioutil.WriteFile(tempName, []byte(test.PriorContents),
+			0644); err != nil {
 			t.Errorf("unable to write to file: %s: %s: %s", tempName,
 				test.PriorContents, err)
 			continue
@@ -297,7 +299,8 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if err := ioutil.WriteFile(tempName, []byte(test.Contents), 0644); err != nil {
+		if err := ioutil.WriteFile(tempName, []byte(test.Contents),
+			0644); err != nil {
 			t.Errorf("unable to write to file: %s: %s: %s", tempName, test.Contents,
 				err)
 			continue
@@ -321,7 +324,8 @@ func TestLoadCIDRsFromFile(t *testing.T) {
 		}
 
 		if err := recordsEqual(recs, test.Records); err != nil {
-			t.Errorf("LoadCIDRsFromFile contents = %s, records = %v, wanted %v. mismatch is: %s",
+			t.Errorf(
+				"LoadCIDRsFromFile contents = %s, records = %v, wanted %v. mismatch is: %s",
 				test.Contents, recs, test.Records, err)
 			continue
 		}
