@@ -292,12 +292,12 @@ func removeUnlistedRules(cidrs []*net.IPNet, ports []int,
 			continue
 		}
 
-		// It is an IP we want listed, so ignore it too since it should be there.
+		// If it is an IP we want listed, ignore it since it should be there.
 		if isCIDRInList(cidrs, rule.Source) {
 			continue
 		}
 
-		// It's not wanted! Remove it.
+		// This rule is no longer valid. Remove it.
 
 		lineNumber := rule.Line - rulesRemoved
 		if err := removeRule(lineNumber); err != nil {
@@ -325,8 +325,9 @@ func isPortInList(ports []int, port int) bool {
 // isCIDRInList looks through a slice of CIDRs. If the given CIDR matches one,
 // then we say it is in the list.
 func isCIDRInList(cidrs []*net.IPNet, cidr *net.IPNet) bool {
+	// TODO(horgh): We could further optimize this by making a map once.
 	for _, c := range cidrs {
-		if c.String() == cidr.String() {
+		if c.IP.Equal(cidr.IP) && bytes.Equal(c.Mask, cidr.Mask) {
 			return true
 		}
 	}
