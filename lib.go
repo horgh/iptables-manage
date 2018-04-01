@@ -1,3 +1,5 @@
+// Package iptablesmanage provides functionality to interact with iptables
+// rules. You can use it to sync rules with CIDR list files.
 package iptablesmanage
 
 import (
@@ -37,24 +39,9 @@ func ApplyUpdatesFromCIDRFile(
 	verbose bool,
 	ports []int,
 ) error {
-	if verbose {
-		log.Printf("Loading networks from file...")
-	}
-
-	// Load CIDRs to be allowed.
 	fileRecords, err := cidrlist.LoadCIDRsFromFile(cidrFile)
 	if err != nil {
 		return fmt.Errorf("unable to load CIDRs: %s", err)
-	}
-
-	if verbose {
-		log.Printf("Retrieving networks currently in iptables...")
-	}
-
-	// Determine CIDRs currently allowed.
-	currentRules, err := getCurrentRules(verbose)
-	if err != nil {
-		return fmt.Errorf("unable to determine current rules: %s", err)
 	}
 
 	var fileCIDRs []*net.IPNet
@@ -62,24 +49,30 @@ func ApplyUpdatesFromCIDRFile(
 		fileCIDRs = append(fileCIDRs, r.Net)
 	}
 
-	if verbose {
-		log.Printf("Pruning networks from iptables...")
+	return Sync(verbose, fileCIDRs, ports)
+}
+
+// Sync takes a list of networks that should be allowed and ensures the
+// iptables rules match that.
+//
+// We remove any rules for CIDRs not in the list and add any CIDRs not in the
+// rules that are in the list.
+func Sync(
+	verbose bool,
+	networks []*net.IPNet,
+	ports []int,
+) error {
+	rules, err := getCurrentRules(verbose)
+	if err != nil {
+		return fmt.Errorf("unable to determine current rules: %s", err)
 	}
 
-	// Remove any that are allowed that should not be.
-	if err := removeUnlistedRules(fileCIDRs, ports, currentRules,
-		verbose); err != nil {
-		return fmt.Errorf("unable to remove rules that are not in the rule file: %s",
-			err)
+	if err := removeUnlistedRules(networks, ports, rules, verbose); err != nil {
+		return fmt.Errorf(
+			"unable to remove rules that are not in the rule file: %s", err)
 	}
 
-	if verbose {
-		log.Printf("Adding networks to iptables...")
-	}
-
-	// Add any not yet allowed that should be.
-	if err := addMissingRules(fileCIDRs, ports, currentRules,
-		verbose); err != nil {
+	if err := addMissingRules(networks, ports, rules, verbose); err != nil {
 		return fmt.Errorf("unable to add missing rules: %s", err)
 	}
 
