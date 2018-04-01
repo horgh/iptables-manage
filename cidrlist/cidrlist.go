@@ -28,7 +28,7 @@ type Record struct {
 
 // RecordIP records the IP to the CIDR file.
 //
-// The format we write, every time:
+// The format we write:
 // # Comment @ current time\n
 // cidr\n
 //
@@ -64,6 +64,7 @@ func RecordIP(file, ipStr, comment string, t time.Time) error {
 	}()
 
 	// Read in current records.
+
 	records, err := LoadCIDRsFromFile(file)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -237,9 +238,12 @@ func copyFileIDs(src, dest string) error {
 
 // LoadCIDRsFromFile opens and parse the CIDR file.
 //
-// We ignore # comments and blank lines.
+// We parse out comments and keep them in each associated record. Currently
+// this is only the first comment line before an IP.
 //
-// All other lines must be full CIDRs. We parse them.
+// We ignore blank lines.
+//
+// All other lines must be full CIDRs.
 func LoadCIDRsFromFile(file string) ([]Record, error) {
 	fh, err := os.Open(file)
 	if err != nil {
