@@ -86,7 +86,7 @@ func getArgs() (Args, error) {
 	}
 
 	portsRaw := strings.Split(*portsString, ",")
-	ports := []int{}
+	var ports []int
 	for _, port := range portsRaw {
 		port = strings.TrimSpace(port)
 		if len(port) == 0 {
