@@ -10,20 +10,15 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os/user"
 	"time"
 
 	iptablesmanage "github.com/horgh/iptables-manage"
 )
 
 func main() {
-	user, err := user.Current()
-	if err != nil {
-		log.Fatalf("Unable to determine the current user: %s", err)
-	}
-	if user.Username != "root" {
-		log.Fatalf("You must run this program as root. You are %s.", user.Username)
-	}
+	// We could check we're running as root, but user.Current() is not
+	// implemented on linux/arm apparently. (Try running the program from cron to
+	// see the error).
 
 	args, err := getArgs()
 	if err != nil {
