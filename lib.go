@@ -57,7 +57,7 @@ func ApplyUpdatesFromCIDRFile(
 		return fmt.Errorf("unable to determine current rules: %s", err)
 	}
 
-	fileCIDRs := []*net.IPNet{}
+	var fileCIDRs []*net.IPNet
 	for _, r := range fileRecords {
 		fileCIDRs = append(fileCIDRs, r.Net)
 	}
@@ -102,7 +102,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 	buf := bytes.NewBuffer(output)
 	scanner := bufio.NewScanner(buf)
 
-	rules := []IPTablesRule{}
+	var rules []IPTablesRule
 
 	for scanner.Scan() {
 		pieces := strings.Fields(scanner.Text())
