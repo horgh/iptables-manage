@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"os/user"
-	"strconv"
-	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	iptablesmanage "github.com/horgh/iptables-manage"
@@ -81,24 +79,12 @@ func getArgs() (Args, error) {
 		return Args{}, fmt.Errorf("please provide a CIDR file")
 	}
 
-	if len(*portsString) == 0 {
-		return Args{}, fmt.Errorf("please provide ports")
+	ports, err := iptablesmanage.CSVToPorts(*portsString)
+	if err != nil {
+		return Args{}, fmt.Errorf("error parsing ports: %s", err)
 	}
-
-	portsRaw := strings.Split(*portsString, ",")
-	var ports []int
-	for _, port := range portsRaw {
-		port = strings.TrimSpace(port)
-		if len(port) == 0 {
-			continue
-		}
-
-		portInt, err := strconv.Atoi(port)
-		if err != nil {
-			return Args{}, fmt.Errorf("invalid port: %s: %s", port, err)
-		}
-
-		ports = append(ports, portInt)
+	if len(ports) == 0 {
+		return Args{}, fmt.Errorf("you must provide a port")
 	}
 
 	return Args{

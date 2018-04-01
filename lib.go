@@ -310,3 +310,25 @@ func addRule(verbose bool, cidr *net.IPNet, port int) error {
 	}
 	return nil
 }
+
+// CSVToPorts takes a comma separated string such as "80,443" and returns the
+// ports.
+func CSVToPorts(s string) ([]int, error) {
+	portsRaw := strings.Split(s, ",")
+	var ports []int
+	for _, port := range portsRaw {
+		port = strings.TrimSpace(port)
+		if len(port) == 0 {
+			continue
+		}
+
+		portInt, err := strconv.Atoi(port)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port: %s: %s", port, err)
+		}
+
+		ports = append(ports, portInt)
+	}
+
+	return ports, nil
+}
