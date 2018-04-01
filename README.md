@@ -1,8 +1,10 @@
-iptables-manage is a wrapper to simplify managing iptables rules.
+This repository provides programs to simplify managing iptables rules.
 
-It reads the IPs (as CIDRs) from a file and updates iptables rules to
-permit them access to specified ports. It adds IPs that are not present,
-and removes any that are in the rules but not in the file.
+
+# iptables-manage
+iptables-manage reads the IPs (as CIDRs) from a file and updates iptables
+rules to allow them access to particular ports. It adds IPs that are not
+present, and removes any that are in the rules but not in the file.
 
 It can run in two modes:
 
@@ -12,6 +14,15 @@ It can run in two modes:
 
 I use the daemon to dynamically whitelist IPs, such as with
 [sshrecordips](https://github.com/horgh/sshrecordips).
+
+
+# dnsrule
+dnsrule looks up the IPs associated with a hostname and ensures the IPs are
+allowed access to given ports. It removes any IPs that are allowed access
+to the ports but are not associated with the hostname.
+
+I run this from cron on hosts where I want to allow only access from a
+dynamic IP host.
 
 
 # Rationale

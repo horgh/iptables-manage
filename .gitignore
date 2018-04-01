@@ -1,2 +1,3 @@
 *.swp
+/cmd/dnsrule/dnsrule
 /cmd/iptables-manage/iptables-manage
