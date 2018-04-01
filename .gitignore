@@ -1,2 +1,2 @@
 *.swp
-/iptables-manage
+/cmd/iptables-manage/iptables-manage
