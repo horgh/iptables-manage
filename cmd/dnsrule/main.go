@@ -13,6 +13,7 @@ import (
 	"time"
 
 	iptablesmanage "github.com/horgh/iptables-manage"
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -47,14 +48,22 @@ func main() {
 		}
 	}
 
-	if err := iptablesmanage.Sync(args.Verbose, ips, args.Ports); err != nil {
-		log.Fatalf("error syncing rules: %s", err)
+	if args.Mode == modeSync {
+		if err := iptablesmanage.Sync(args.Verbose, ips, args.Ports); err != nil {
+			log.Fatalf("error syncing rules: %s", err)
+		}
+		return
+	}
+
+	if err := iptablesmanage.Allow(args.Verbose, ips, args.Ports); err != nil {
+		log.Fatalf("%+v", errors.WithMessage(err, "error allowing"))
 	}
 }
 
 // Args are command line arguments.
 type Args struct {
 	Host    string
+	Mode    mode
 	Ports   []int
 	Verbose bool
 }
@@ -62,6 +71,11 @@ type Args struct {
 func getArgs() (Args, error) {
 	host := flag.String("host", "",
 		"Hostname to resolve and whitelist its IPs.")
+	modeStr := flag.String(
+		"mode",
+		string(modeSync),
+		"Action to take. If 'sync', ensures we only allow the discovered IPs. If 'add', ensure the discovered IPs are allowed in addition to what we currently allow.",
+	)
 	portsString := flag.String("ports", "22",
 		"Ports to grant access to. Comma separated.")
 	verbose := flag.Bool("verbose", false, "Toggle verbose output.")
@@ -70,6 +84,10 @@ func getArgs() (Args, error) {
 
 	if *host == "" {
 		return Args{}, fmt.Errorf("you must provide a hostname")
+	}
+
+	if *modeStr != string(modeSync) && *modeStr != string(modeAdd) {
+		return Args{}, errors.New("mode must be 'sync' or 'add'")
 	}
 
 	ports, err := iptablesmanage.CSVToPorts(*portsString)
@@ -82,10 +100,16 @@ func getArgs() (Args, error) {
 
 	return Args{
 		Host:    *host,
+		Mode:    mode(*modeStr),
 		Ports:   ports,
 		Verbose: *verbose,
 	}, nil
 }
+
+type mode string
+
+const modeSync mode = "sync"
+const modeAdd mode = "add"
 
 func getIPs(ctx context.Context, host string) ([]*net.IPNet, error) {
 	resolver := &net.Resolver{
