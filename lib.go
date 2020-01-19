@@ -133,7 +133,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 		}
 
 		// TODO(horgh): Assumes IPv4
-		if strings.Index(source, "/") == -1 {
+		if !strings.Contains(source, "/") {
 			source = source + "/32"
 		}
 
