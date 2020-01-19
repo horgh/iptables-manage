@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/horgh/iptables-manage/cidrlist"
+	"github.com/pkg/errors"
 )
 
 // IPTablesRule holds an iptables rule.
@@ -89,7 +90,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 	cmd := exec.Command("iptables", "-nL", "INPUT", "--line-numbers")
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("unable to run iptables -nL: %s", err)
+		return nil, errors.Wrapf(err, "unable to run iptables -nL: %s", output)
 	}
 
 	buf := bytes.NewBuffer(output)
@@ -115,8 +116,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 
 		numInt, err := strconv.Atoi(num)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse number as integer: %s: %s", num,
-				err)
+			return nil, errors.Wrap(err, "unable to parse number")
 		}
 
 		if target != "ACCEPT" {
@@ -139,20 +139,19 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 
 		_, ipNet, err := net.ParseCIDR(source)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse source as CIDR: %s: %s", source,
-				err)
+			return nil, errors.Wrapf(err, "unable to parse source as CIDR: %s", source)
 		}
 
 		re := regexp.MustCompile("^dpt:(\\d+)$")
 		matches := re.FindStringSubmatch(dpt)
 		if matches == nil {
-			return nil, fmt.Errorf("unexpected dpt value: %s", dpt)
+			return nil, errors.Errorf("unexpected dpt value: %s", dpt)
 		}
 
 		port, err := strconv.Atoi(matches[1])
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse port as integer: %s: %s",
-				matches[1], err)
+			return nil, errors.Wrapf(err, "unable to parse port as integer: %s",
+				matches[1])
 		}
 
 		rules = append(rules, IPTablesRule{
@@ -163,7 +162,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scan error: %s", err)
+		return nil, errors.Wrap(err, "scan error")
 	}
 
 	return rules, nil
@@ -281,7 +280,7 @@ func addMissingRules(
 			}
 
 			if err := addRule(verbose, cidr, port); err != nil {
-				return fmt.Errorf("unable to add rule: %s", err)
+				return errors.WithMessage(err, "unable to add rule")
 			}
 
 			log.Printf("Added rule: %s %d", cidr, port)
@@ -306,7 +305,7 @@ func addRule(verbose bool, cidr *net.IPNet, port int) error {
 		"-j", "ACCEPT",
 	)
 	if buf, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("unable to run iptables -I: %s: %s", err, buf)
+		return errors.Wrapf(err, "unable to run iptables -I: %s", buf)
 	}
 	return nil
 }
