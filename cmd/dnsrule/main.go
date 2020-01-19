@@ -54,19 +54,23 @@ func main() {
 
 // Args are command line arguments.
 type Args struct {
-	Verbose bool
-	Ports   []int
 	Host    string
+	Ports   []int
+	Verbose bool
 }
 
 func getArgs() (Args, error) {
-	verbose := flag.Bool("verbose", false, "Toggle verbose output.")
-	portsString := flag.String("ports", "22",
-		"Ports to grant access to. Comma separated.")
 	host := flag.String("host", "",
 		"Hostname to resolve and whitelist its IPs.")
+	portsString := flag.String("ports", "22",
+		"Ports to grant access to. Comma separated.")
+	verbose := flag.Bool("verbose", false, "Toggle verbose output.")
 
 	flag.Parse()
+
+	if *host == "" {
+		return Args{}, fmt.Errorf("you must provide a hostname")
+	}
 
 	ports, err := iptablesmanage.CSVToPorts(*portsString)
 	if err != nil {
@@ -76,14 +80,10 @@ func getArgs() (Args, error) {
 		return Args{}, fmt.Errorf("you must provide a port")
 	}
 
-	if *host == "" {
-		return Args{}, fmt.Errorf("you must provide a hostname")
-	}
-
 	return Args{
-		Verbose: *verbose,
-		Ports:   ports,
 		Host:    *host,
+		Ports:   ports,
+		Verbose: *verbose,
 	}, nil
 }
 
