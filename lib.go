@@ -310,6 +310,25 @@ func addRule(verbose bool, cidr *net.IPNet, port int) error {
 	return nil
 }
 
+// Allow ensures the networks and ports are allowed by adding rules for
+// them if they are not yet allowed.
+func Allow(
+	verbose bool,
+	networks []*net.IPNet,
+	ports []int,
+) error {
+	rules, err := getCurrentRules(verbose)
+	if err != nil {
+		return errors.WithMessage(err, "error retrieving current rules")
+	}
+
+	if err := addMissingRules(networks, ports, rules, verbose); err != nil {
+		return errors.WithMessage(err, "error adding missing rules")
+	}
+
+	return nil
+}
+
 // CSVToPorts takes a comma separated string such as "80,443" and returns the
 // ports.
 func CSVToPorts(s string) ([]int, error) {
