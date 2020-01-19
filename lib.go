@@ -142,7 +142,7 @@ func getCurrentRules(verbose bool) ([]IPTablesRule, error) {
 			return nil, errors.Wrapf(err, "unable to parse source as CIDR: %s", source)
 		}
 
-		re := regexp.MustCompile("^dpt:(\\d+)$")
+		re := regexp.MustCompile(`^dpt:(\d+)$`)
 		matches := re.FindStringSubmatch(dpt)
 		if matches == nil {
 			return nil, errors.Errorf("unexpected dpt value: %s", dpt)
